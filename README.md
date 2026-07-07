@@ -49,6 +49,30 @@ op run --env-file=.env.tpl -- uv run python -m notion_contact_sync.new_contacts
 Scheduling via launchd is not wired up yet — needs nix-config integration
 (add a second launchd agent or fold into the main job in `nix/darwin.nix`).
 
+## Enrichment
+
+`src/notion_contact_sync/enrich.py` parses the on-disk exports into a common
+record and fills empty social-profile props on People pages — Instagram (url),
+Facebook (url), Snapchat (rich_text username), LinkedIn URL (rich_text).
+Matching is by normalized name (casefold, accents/punct/digits stripped;
+Instagram usernames are compared letters-only against Name / First+Last /
+Nickname+Last). Safety: writes only to EMPTY props, and only when exactly one
+person matches exactly one export record; single-word person names are never
+auto-matched. Everything ambiguous/unmatched lands in
+`data/reports/enrichment-review-<date>.csv` (gitignored — PII) with a
+`status` column (`unmatched`, `ambiguous_person`, `ambiguous_record`,
+`matched_no_url`, `single_name_match`) for manual review.
+
+Note: Facebook's export has names only (no profile URLs), so Facebook matches
+always go to the review CSV as `matched_no_url`.
+
+```bash
+op run --env-file=.env.tpl -- uv run python -m notion_contact_sync.enrich --dry-run  # then without
+```
+
+First real run 2026-07-06: applied instagram=28 snapchat=28 linkedin=36
+facebook=0; 3360 review rows.
+
 ## Manual export procedures (uncodifiable click-ops)
 
 Each platform's export is a manual download; refresh them into `data/` before

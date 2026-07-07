@@ -207,6 +207,18 @@ def test_match_facebook_no_url_goes_to_review():
     assert review[0]["status"] == "matched_no_url"
 
 
+def test_match_single_word_person_name_goes_to_review():
+    rec = {
+        "source": "instagram",
+        "username": "alexa.2472",
+        "display_name": "",
+        "profile_url": "https://www.instagram.com/alexa.2472",
+    }
+    applies, review = match([rec], build_people_index([person("p1", "Alexa")]))
+    assert applies == []
+    assert review[0]["status"] == "single_name_match"
+
+
 def test_match_nickname_key():
     people = [person("p1", "Jonathan Doe", nick="Jonny", last="Doe")]
     applies, _ = match([li_rec("Jonny Doe")], build_people_index(people))

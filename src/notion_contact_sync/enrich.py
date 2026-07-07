@@ -143,7 +143,7 @@ def match(records: list[dict], index: dict[str, list[dict]]) -> tuple[list[dict]
 
     applies: {person_id, person_name, prop, value, source}
     review_rows: record + {status, candidates}; statuses: unmatched,
-    ambiguous_person, ambiguous_record, matched_no_url.
+    ambiguous_person, ambiguous_record, matched_no_url, single_name_match.
     """
     groups: dict[tuple[str, str], dict[str, dict]] = {}  # (source, key) -> value -> record
     applies: list[dict] = []
@@ -177,6 +177,9 @@ def match(records: list[dict], index: dict[str, list[dict]]) -> tuple[list[dict]
             value = _record_value(rec)
             if not value:
                 to_review(rec, "matched_no_url", people)
+            elif len(person_display(person).split()) < 2:
+                # ponytail: one-word person names ("Alexa") match too loosely — defer to Alex
+                to_review(rec, "single_name_match", people)
             elif _prop_empty(person, SOURCE_PROP[rec["source"]]):
                 applies.append(
                     {
