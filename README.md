@@ -32,6 +32,23 @@ flake.nix                  exposes darwinModules.default for nix-config to consu
 justfile                   run / test / check / fmt / store-op-token
 ```
 
+## New-contact triage
+
+`src/notion_contact_sync/new_contacts.py` queries the People DB for anyone
+whose Tags multi-select is empty and creates a low-priority
+"Tag & categorize contact: <Name>" task in the Tasks DB, linked to the
+Notion Contact Sync project. Processed people page ids are tracked in
+`.state/new_contacts_processed.json` (gitignored) so re-runs never create
+duplicates. Creations are capped per run (`NEW_CONTACTS_MAX_TASKS`, default
+30) — the remainder is picked up by later runs.
+
+```bash
+op run --env-file=.env.tpl -- uv run python -m notion_contact_sync.new_contacts
+```
+
+Scheduling via launchd is not wired up yet — needs nix-config integration
+(add a second launchd agent or fold into the main job in `nix/darwin.nix`).
+
 ## Manual export procedures (uncodifiable click-ops)
 
 Each platform's export is a manual download; refresh them into `data/` before

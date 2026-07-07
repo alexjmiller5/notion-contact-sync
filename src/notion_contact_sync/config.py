@@ -9,3 +9,4 @@ from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     notion_token: str
+    new_contacts_max_tasks: int = 30

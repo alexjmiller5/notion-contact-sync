@@ -6,3 +6,4 @@ __pycache__/
 .env.resolved
 data/
 .DS_Store
+.state/
