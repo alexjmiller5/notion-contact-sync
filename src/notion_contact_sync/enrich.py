@@ -30,9 +30,7 @@ from notion_contact_sync.config import Settings
 log = structlog.get_logger()
 
 API = "https://api.notion.com/v1"
-PEOPLE_DS = "1a803953-a8af-80ab-824d-000bfe407316"
 DATA = Path(__file__).parents[2] / "data"
-LINKEDIN_CONNECTIONS = DATA / "linkedin/Complete_LinkedInDataExport_06-23-2025/Connections.csv"
 SOURCE_PROP = {
     "instagram": "Instagram",
     "facebook": "Facebook",
@@ -197,14 +195,14 @@ def match(records: list[dict], index: dict[str, list[dict]]) -> tuple[list[dict]
 # --- Notion I/O ---
 
 
-def fetch_all_people(client: httpx.Client) -> list[dict]:
+def fetch_all_people(client: httpx.Client, people_ds: str) -> list[dict]:
     results: list[dict] = []
     cursor: str | None = None
     while True:
         body: dict = {"page_size": 100}
         if cursor:
             body["start_cursor"] = cursor
-        resp = client.post(f"{API}/data_sources/{PEOPLE_DS}/query", json=body)
+        resp = client.post(f"{API}/data_sources/{people_ds}/query", json=body)
         resp.raise_for_status()
         data = resp.json()
         results.extend(data["results"])
@@ -225,6 +223,14 @@ def apply_one(client: httpx.Client, a: dict) -> None:
     ).raise_for_status()
 
 
+def linkedin_connections() -> Path:
+    """Newest LinkedIn export dir (by mtime) — the dated dir name changes per download."""
+    exports = list((DATA / "linkedin").glob("Complete_LinkedInDataExport_*"))
+    if not exports:
+        raise FileNotFoundError(f"no {DATA}/linkedin/Complete_LinkedInDataExport_* export found")
+    return max(exports, key=lambda p: p.stat().st_mtime) / "Connections.csv"
+
+
 def load_records() -> list[dict]:
     records: list[dict] = []
     sources = [
@@ -236,7 +242,7 @@ def load_records() -> list[dict]:
         ),
         ("facebook", lambda: parse_facebook(DATA / "facebook/your_friends.json")),
         ("snapchat", lambda: parse_snapchat(DATA / "snapchat/friends.json")),
-        ("linkedin", lambda: parse_linkedin(LINKEDIN_CONNECTIONS)),
+        ("linkedin", lambda: parse_linkedin(linkedin_connections())),
     ]
     for name, parse in sources:
         try:
@@ -258,7 +264,7 @@ def run(dry_run: bool = False) -> dict:
     }
     records = load_records()
     with httpx.Client(headers=headers, timeout=30) as client:
-        people = fetch_all_people(client)
+        people = fetch_all_people(client, settings.people_ds)
         log.info("people cached", count=len(people))
         applies, review = match(records, build_people_index(people))
         if not dry_run:

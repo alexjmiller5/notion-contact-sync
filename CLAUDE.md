@@ -28,10 +28,10 @@ add this repo as an input there, enable `services.notion-contact-sync`,
 `just switch`.
 
 Secret zero: the 1Password service-account token lives in the login Keychain
-(`just store-op-token`, one-time per machine). run.sh reads it with
+(`just store-op-token '<op-ref>'`, one-time per machine). run.sh reads it with
 `security find-generic-password`. No plaintext secrets on disk, ever.
 NOTE: the project 1P vault + CI service account are not created yet — see
-"Pending 1Password setup" in README.md.
+"Bootstrap" in README.md.
 
 ## Stack
 

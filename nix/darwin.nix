@@ -56,7 +56,7 @@ in
   config = lib.mkIf cfg.enable {
     launchd.user.agents.notion-contact-sync = {
       serviceConfig = {
-        Label = "com.alexmiller.notion-contact-sync";
+        Label = "notion-contact-sync";
         ProgramArguments = [
           "/bin/bash"
           "${cfg.checkoutDir}/scripts/run.sh"

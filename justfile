@@ -25,7 +25,7 @@ logs:
     tail -F data/launchd.log data/launchd.err.log
 
 # One-time per machine: put the 1Password SA token in the login Keychain
-store-op-token:
-    ./scripts/store_op_token.sh notion-contact-sync-op-token
+store-op-token op_ref:
+    ./scripts/store_op_token.sh notion-contact-sync-op-token "{{op_ref}}"
 
 # --- project-specific recipes below (one-offs live in scripts/, run directly) ---

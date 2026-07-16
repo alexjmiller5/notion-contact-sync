@@ -1,20 +1,27 @@
 # Notion Contact Source Unifier
 
 Unifies contacts from every social platform's data export into the Notion
-People DB. Runs as a scheduled job on the mac mini (mini-job template) since
+People DB. Runs as a scheduled job on a Mac (launchd via nix-darwin) since
 inputs are manually-downloaded local export files.
+
+This is personal infrastructure published for others to adapt: point it at
+your own Notion via env vars (see `.env.tpl`). It expects a People database
+with `Name` (title), `First Name`/`Last Name`/`Nickname` (rich_text),
+`Instagram`/`Facebook` (url), `Snapchat`/`LinkedIn URL` (rich_text), and a
+tags multi-select (`TAGS_PROP`, default `Tags`); and a Tasks database with
+`Name` (title), `Status`, `Priority` (select), `Notes` (rich_text), and
+`Project` (relation).
 
 ## Sources
 
-- Google Contacts
+- Google Contacts (planned — has a real API)
 - Snapchat
 - Instagram
 - Facebook
 - LinkedIn
 
-## Key Notes
-
-- definitely gonna need instructions about how to update the contact information with each source. Gonna need detailed instructions for each source and make sure the file structures match for each socials way of exporting them. Google contact should be easy because it has an api but gonna need to make sure my code is able to extract the proper data from the way the data is structured for each of the socials (instagram, facebook, snapchat, linkedin).
+Each source's export format differs; the per-platform parsers and manual
+export procedures below keep them in sync.
 
 ## Layout
 
@@ -46,8 +53,9 @@ duplicates. Creations are capped per run (`NEW_CONTACTS_MAX_TASKS`, default
 op run --env-file=.env.tpl -- uv run python -m notion_contact_sync.new_contacts
 ```
 
-Scheduling via launchd is not wired up yet — needs nix-config integration
-(add a second launchd agent or fold into the main job in `nix/darwin.nix`).
+The scheduled entrypoint (`notion_contact_sync.main`, invoked by
+`scripts/run.sh`) runs enrichment then new-contact triage; missing exports are
+skipped with a warning.
 
 ## Enrichment
 
@@ -69,9 +77,6 @@ always go to the review CSV as `matched_no_url`.
 ```bash
 op run --env-file=.env.tpl -- uv run python -m notion_contact_sync.enrich --dry-run  # then without
 ```
-
-First real run 2026-07-06: applied instagram=28 snapchat=28 linkedin=36
-facebook=0; 3360 review rows.
 
 ## Manual export procedures (uncodifiable click-ops)
 
@@ -104,22 +109,11 @@ archive) → unzip to `data/linkedin/Complete_LinkedInDataExport_<date>/`.
 See the `new-project` skill, or the checklist in CLAUDE.md.
 
 Manual one-time steps per machine (cannot be codified — keep documented here):
-- `just store-op-token` — 1Password SA token → login Keychain
+- `just store-op-token '<op://ref/to/SA token>'` — 1Password service-account
+  token → login Keychain
 - Grant Full Disk Access if the job reads protected data (TCC is SIP-protected)
 
-### Pending 1Password setup (TODO — needs Alex's desktop op session)
-
-The claude-code service account cannot create vaults (403). Run:
-
-```bash
-op vault create "Notion Contact Sync"
-OUT=$(op service-account create "notion-contact-sync-ci" --vault "Notion Contact Sync:read_items" --format json </dev/null)
-op item create --category "API Credential" --title "notion-contact-sync-ci SA Token" --vault Personal "token[concealed]=$(echo "$OUT" | jq -r .token)" </dev/null
-```
-
-Then add a "Notion Integration Secret" item (field `credential`) to the new
-vault, and bootstrap CI:
-
-```bash
-gh secret set OP_SERVICE_ACCOUNT_TOKEN --body "$(op read 'op://Personal/notion-contact-sync-ci SA Token/token')"
-```
+1Password side: a vault holding the items referenced in `.env.tpl`
+(`Notion Integration Secret` plus a `Notion Contact Sync ENV` item with your
+Notion ids), and a service account scoped read-only to that vault whose token
+goes in the Keychain above.

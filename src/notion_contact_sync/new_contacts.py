@@ -20,25 +20,21 @@ from notion_contact_sync.config import Settings
 log = structlog.get_logger()
 
 API = "https://api.notion.com/v1"
-PEOPLE_DS = "1a803953-a8af-80ab-824d-000bfe407316"
-TASKS_DS = "77ef5074-aa23-468a-b5fb-2692e78184db"
-PROJECT_PAGE_ID = "31103953-a8af-8109-890a-c3b303864590"
-TAGS_PROP = "Tags (This will absorb gcontacts labels)"
 STATE_FILE = Path(__file__).parents[2] / ".state" / "new_contacts_processed.json"
 
 
-def fetch_untagged_people(client: httpx.Client) -> list[dict]:
+def fetch_untagged_people(client: httpx.Client, people_ds: str, tags_prop: str) -> list[dict]:
     results: list[dict] = []
     cursor: str | None = None
     while True:
         body: dict = {
-            "filter": {"property": TAGS_PROP, "multi_select": {"is_empty": True}},
+            "filter": {"property": tags_prop, "multi_select": {"is_empty": True}},
             "sorts": [{"property": "Created time", "direction": "ascending"}],
             "page_size": 100,
         }
         if cursor:
             body["start_cursor"] = cursor
-        resp = client.post(f"{API}/data_sources/{PEOPLE_DS}/query", json=body)
+        resp = client.post(f"{API}/data_sources/{people_ds}/query", json=body)
         resp.raise_for_status()
         data = resp.json()
         results.extend(data["results"])
@@ -51,9 +47,9 @@ def person_name(person: dict) -> str:
     return "".join(t["plain_text"] for t in person["properties"]["Name"]["title"]) or "(unnamed)"
 
 
-def task_payload(person: dict) -> dict:
+def task_payload(person: dict, tasks_ds: str, project_page_id: str) -> dict:
     return {
-        "parent": {"type": "data_source_id", "data_source_id": TASKS_DS},
+        "parent": {"type": "data_source_id", "data_source_id": tasks_ds},
         "properties": {
             "Name": {
                 "title": [{"text": {"content": f"Tag & categorize contact: {person_name(person)}"}}]
@@ -61,7 +57,7 @@ def task_payload(person: dict) -> dict:
             "Status": {"status": {"name": "To Do"}},
             "Priority": {"select": {"name": "Low"}},
             "Notes": {"rich_text": [{"text": {"content": person["url"]}}]},
-            "Project": {"relation": [{"id": PROJECT_PAGE_ID}]},
+            "Project": {"relation": [{"id": project_page_id}]},
         },
     }
 
@@ -78,7 +74,7 @@ def run(max_tasks: int | None = None, state_path: Path = STATE_FILE) -> dict:
     }
     created = skipped = remaining = 0
     with httpx.Client(headers=headers, timeout=30) as client:
-        people = fetch_untagged_people(client)
+        people = fetch_untagged_people(client, settings.people_ds, settings.tags_prop)
         for person in people:
             if person["id"] in processed:
                 skipped += 1
@@ -86,7 +82,8 @@ def run(max_tasks: int | None = None, state_path: Path = STATE_FILE) -> dict:
             if created >= max_tasks:
                 remaining += 1
                 continue
-            client.post(f"{API}/pages", json=task_payload(person)).raise_for_status()
+            payload = task_payload(person, settings.tasks_ds, settings.project_page_id)
+            client.post(f"{API}/pages", json=payload).raise_for_status()
             processed.add(person["id"])
             created += 1
             log.info("task created", person=person_name(person))
