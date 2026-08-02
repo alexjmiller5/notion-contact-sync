@@ -1,4 +1,4 @@
-# CLAUDE.md
+# AGENTS.md
 
 notion-contact-sync: unifies contacts from social-platform data exports
 (Snapchat, Instagram, Facebook, LinkedIn, Google Contacts) into the Notion
@@ -41,7 +41,7 @@ Instantiate `Settings()` inside `main()`, never at import time.
 
 ## Commands
 
-Standard verb set (see global CLAUDE.md) — the justfile is the interface,
+Standard verb set (see global AGENTS.md) — the justfile is the interface,
 not a script catalog; one-offs go in `scripts/` and run directly.
 
 | Command | Purpose |
